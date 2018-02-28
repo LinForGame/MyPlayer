@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"  android:color="@color/colorFilePress">
+
+    <item android:drawable="@color/colorFilePress" android:state_pressed="true"/>
+    <item android:drawable= "@color/colorFile" android:state_pressed="false"/>
+</ripple>
