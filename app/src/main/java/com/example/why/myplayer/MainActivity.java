@@ -29,20 +29,26 @@ import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
-private String rootPath;
-private File fatherFileDirectory=null;
-private File[] currentFiles=null;
-private ListView listView;
-private TextView textView;
-private Button button;
-private Button button5;
-private Button button6;
-private Button button7;
-private Intent intent;
-private int timeInterval=0;
-private ServiceConnection connection;
-private MyMediaPlayerService myMediaPlayerService=null;
-List<Map<String, Object>> fileLists;
+    public final static int playModeOnce = 0;
+    public final static int playModeOneRepeat = 1;
+    public final static int playModeOrder = 2;
+    public final static int playModeAllRepeat = 3;
+    public final static int playModeRandom = 4;
+    private String rootPath;
+    private File fatherFileDirectory=null;
+    private File[] currentFiles=null;
+    private ListView listView;
+    private TextView textView;
+    private Button button;
+    private Button button5;
+    private Button button6;
+    private Button button7;
+    private Intent intent;
+    private int timeInterval=0;
+    private int playMode=0;//0 = 单曲单次， 1 = 单曲循环，2 = 顺序循环，3 = 全部循环，4 = 随机
+    private ServiceConnection connection;
+    private MyMediaPlayerService myMediaPlayerService=null;
+    List<Map<String, Object>> fileLists;
     private int ii;
 
     @Override
@@ -72,7 +78,34 @@ List<Map<String, Object>> fileLists;
                 Log.d("---","绑定失连！！！ onServiceDisconnected");
             }
         };
+        button5.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(playMode<4) {
+                    playMode++;
+                }else{
+                    playMode=0;
+                }
+                switch (playMode){
+                    case playModeOnce:
+                        button5.setText("单曲单次");
+                        break;
+                    case playModeOneRepeat:
+                        button5.setText("单曲循环");
+                        break;
+                    case playModeOrder:
+                        button5.setText("顺序循环");
+                        break;
+                    case playModeAllRepeat:
+                        button5.setText("全部循环");
+                        break;
+                    case playModeRandom:
+                        button5.setText("随机");
+                        break;
 
+                }
+            }
+        });
         button6.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
