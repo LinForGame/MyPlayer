@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MyPlayer</string>
+    <string name="path">路径</string>
+    <string name="button">返回</string>
+</resources>
