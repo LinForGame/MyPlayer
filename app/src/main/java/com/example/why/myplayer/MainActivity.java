@@ -39,6 +39,7 @@ private Button button5;
 private Button button6;
 private Button button7;
 private Intent intent;
+private int timeInterval=0;
 private ServiceConnection connection;
 private MyMediaPlayerService myMediaPlayerService=null;
 List<Map<String, Object>> fileLists;
@@ -72,14 +73,17 @@ List<Map<String, Object>> fileLists;
             }
         };
 
-        button5.setOnClickListener(new View.OnClickListener() {
+        button6.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                bindService(intent,connection,Service.BIND_AUTO_CREATE);
-                Log.d("---","button5: 绑定服务启动！");
+                if(timeInterval<5) {
+                    timeInterval++;
+                }else{
+                    timeInterval=0;
+                }
+                button6.setText(String.valueOf(timeInterval));
             }
         });
-
         /**for test**/
 
         /**for test**/
@@ -142,7 +146,8 @@ List<Map<String, Object>> fileLists;
             }
         });
 
-
+        bindService(intent,connection,Service.BIND_AUTO_CREATE);
+        Log.d("---","button5: 绑定服务启动！");
 
         }
 
