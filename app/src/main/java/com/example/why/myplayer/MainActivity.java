@@ -1,17 +1,18 @@
 package com.example.why.myplayer;
 
+import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
@@ -20,7 +21,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -29,23 +29,26 @@ import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
-    public final static int playModeOnce = 0;
-    public final static int playModeOneRepeat = 1;
-    public final static int playModeOrder = 2;
-    public final static int playModeAllRepeat = 3;
-    public final static int playModeRandom = 4;
+    public final static int playModeOrder = 0;
+    public final static int playModeCircle = 1;
+    public final static int playModeRandom = 2;
+    private boolean isPlaying = false;
+    public boolean playRepeat=true;
     private String rootPath;
     private File fatherFileDirectory=null;
     private File[] currentFiles=null;
     private ListView listView;
     private TextView textView;
     private Button button;
-    private Button button5;
-    private Button button6;
-    private Button button7;
+    private Button btnPlayMode;
+    private Button btnTimeInterval;
+    private Button btnPlayRepeat;
+    private Button btnNextOne;
+    private Button btnPreviouOne;
+    private Button btnPauseStart;
     private Intent intent;
     private int timeInterval=0;
-    private int playMode=0;//0 = 单曲单次， 1 = 单曲循环，2 = 顺序循环，3 = 全部循环，4 = 随机
+    private int playMode=0;
     private ServiceConnection connection;
     private MyMediaPlayerService myMediaPlayerService=null;
     List<Map<String, Object>> fileLists;
@@ -60,9 +63,12 @@ public class MainActivity extends AppCompatActivity {
         listView = findViewById(R.id.listView);
         textView = findViewById(R.id.textView);
         button = findViewById(R.id.button);
-        button5 = findViewById(R.id.button5);
-        button6 = findViewById(R.id.button6);
-        button7 = findViewById(R.id.button7);
+        btnPlayMode = findViewById(R.id.btnPlayMode);
+        btnTimeInterval = findViewById(R.id.btnTimeInterval);
+        btnPlayRepeat = findViewById(R.id.btnPlayRepeat);
+        btnNextOne = findViewById(R.id.btnNextOne);
+        btnPreviouOne = findViewById(R.id.btnPreviouOne);
+        btnPauseStart = findViewById(R.id.btnPauseStart);
 
         intent = new Intent(MainActivity.this,MyMediaPlayerService.class);
 
@@ -71,6 +77,16 @@ public class MainActivity extends AppCompatActivity {
             public void onServiceConnected(ComponentName name, IBinder service) {
                 Log.d("---","绑定成功 已连接上服务onServiceConnected");
                 myMediaPlayerService = ((MyMediaPlayerService.MyIBinder) service).getService();
+                myMediaPlayerService.setCallback(new MyMediaPlayerService.Callback() {
+                    @Override
+                    public void onStateChange(boolean state) {
+                        Message msg = new Message();
+                        Bundle b = new Bundle();
+                        b.putBoolean("state",state);
+                        msg.setData(b);
+                        handler.sendMessage(msg);
+                    }
+                });
             }
 
             @Override
@@ -78,35 +94,29 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("---","绑定失连！！！ onServiceDisconnected");
             }
         };
-        button5.setOnClickListener(new View.OnClickListener() {
+        btnPlayMode.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(playMode<4) {
+                if(playMode<2) {
                     playMode++;
                 }else{
                     playMode=0;
                 }
                 switch (playMode){
-                    case playModeOnce:
-                        button5.setText("单曲单次");
-                        break;
-                    case playModeOneRepeat:
-                        button5.setText("单曲循环");
-                        break;
                     case playModeOrder:
-                        button5.setText("顺序循环");
+                        btnPlayMode.setText("顺序循环");
                         break;
-                    case playModeAllRepeat:
-                        button5.setText("全部循环");
+                    case playModeCircle:
+                        btnPlayMode.setText("全部循环");
                         break;
                     case playModeRandom:
-                        button5.setText("随机");
+                        btnPlayMode.setText("随机");
                         break;
                 }
                 myMediaPlayerService.setPlayMode(playMode);
             }
         });
-        button6.setOnClickListener(new View.OnClickListener() {
+        btnTimeInterval.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if(timeInterval<5) {
@@ -114,8 +124,42 @@ public class MainActivity extends AppCompatActivity {
                 }else{
                     timeInterval=0;
                 }
-                button6.setText(String.valueOf(timeInterval));
+                btnTimeInterval.setText(String.valueOf(timeInterval));
                 myMediaPlayerService.setTimeInterval(timeInterval);
+            }
+        });
+
+        btnPlayRepeat.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                playRepeat = !playRepeat;
+                myMediaPlayerService.setPlayRepeat(playRepeat);
+                if(playRepeat){
+                    btnPlayRepeat.setText("重复");
+                }else{
+                    btnPlayRepeat.setText("不重复");
+                }
+            }
+        });
+
+        btnPreviouOne.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                myMediaPlayerService.playPreviouOne();
+            }
+        });
+
+        btnNextOne.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                myMediaPlayerService.playNextOne();
+            }
+        });
+
+        btnPauseStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                myMediaPlayerService.pauseMusic();
             }
         });
         /**for test**/
@@ -181,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         bindService(intent,connection,Service.BIND_AUTO_CREATE);
-        Log.d("---","button5: 绑定服务启动！");
+        Log.d("---","btnPlayMode: 绑定服务启动！");
 
         }
 
@@ -243,5 +287,17 @@ public class MainActivity extends AppCompatActivity {
         });
 
     }
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            if(msg.getData().getBoolean("state")){
+                btnPauseStart.setText("暂停");
+            }else{
+                btnPauseStart.setText("播放");
+            }
+        }
+    };
 }
 

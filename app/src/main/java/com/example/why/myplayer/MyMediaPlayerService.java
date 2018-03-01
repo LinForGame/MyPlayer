@@ -8,6 +8,7 @@ import android.os.IBinder;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,19 +27,20 @@ import java.util.TimerTask;
  */
 
 public class MyMediaPlayerService extends Service {
-    public final static int playModeOnce = 0;
-    public final static int playModeOneRepeat = 1;
-    public final static int playModeOrder = 2;
-    public final static int playModeAllRepeat = 3;
-    public final static int playModeRandom = 4;
-    private int playMode=0;//0 = 单曲单次， 1 = 单曲循环，2 = 顺序循环，3 = 全部循环，4 = 随机
+    public final static int playModeOrder = 0;
+    public final static int playModeCircle = 1;
+    public final static int playModeRandom = 2;
+    private Callback callback=null;
+    public boolean playRepeat=true;
+    private int playMode=0;
     private int timeInterval=0;
     private TimerTask timerTask;
     private Timer timer;
     private File file;
     private String currentDirectory=null;
     private List<String> playList;
-    private int currrentIndex;
+    private List<String> recordList;
+    private int currrentIndex=0;
     private MediaPlayer mediaPlayer;
     private MyIBinder myIBinder = new MyIBinder();
     private boolean isPlaying = false;
@@ -48,8 +50,19 @@ public class MyMediaPlayerService extends Service {
             return MyMediaPlayerService.this;
         }
     }
-    @Nullable
-    @Override
+
+    public static interface Callback{
+        void onStateChange(boolean state );
+    }
+
+    public Callback getCallback() {
+        return callback;
+    }
+
+    public void setCallback(Callback callback) {
+        this.callback = callback;
+    }
+
     public IBinder onBind(Intent intent) {
         Log.d("---","MyMediaPlayerService.onBind()");
         return myIBinder;
@@ -60,50 +73,28 @@ public class MyMediaPlayerService extends Service {
         super.onCreate();
         Log.d("---","MyMediaPlayerService.onCreate()");
         mediaPlayer = new MediaPlayer();
+
         mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mp) {
                 isPlaying = false;
+                updateState(isPlaying);
                 Log.d("---","音乐播放完毕 setOnCompletionListener");
-                mp.reset();
                 timerTask = new TimerTask() {
                     @Override
                     public void run() {
-                        switch (playMode){
-                            case playModeOnce:
-                                return;
-                            case playModeOneRepeat:
-
-                                break;
-                            case playModeOrder:
-                                if(currrentIndex<(playList.size()-1)) {
-                                    currrentIndex++;
-                                } else {
-                                    return;
-                                }
-                                break;
-                            case playModeAllRepeat:
-                                if(currrentIndex<(playList.size()-1)) {
-                                    currrentIndex++;
-                                } else {
-                                    currrentIndex = 0;
-                                }
-                                break;
-                            case playModeRandom:
-                                Random rand = new Random();
-                                currrentIndex = rand.nextInt(playList.size());
-                                break;
+                        if(playRepeat){
+                            playMusicBySelf(playList.get(currrentIndex));
+                        }else {
+                            playNextOne();
                         }
-                        playMusicBySelf(playList.get(currrentIndex));
                     }
                 };
                 timer = new Timer();
                 timer.schedule(timerTask,timeInterval*1000);
-
-
-
             }
         });
+
         mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
             @Override
             public boolean onError(MediaPlayer mp, int what, int extra) {
@@ -117,6 +108,7 @@ public class MyMediaPlayerService extends Service {
             public void onPrepared(MediaPlayer mp) {
                 Log.d("---","音乐准备完毕，可以播放了 setOnPreparedListener");
                 mp.start();
+                updateState(isPlaying);
             }
         });
     }
@@ -138,12 +130,6 @@ public class MyMediaPlayerService extends Service {
         super.onDestroy();
     }
     public void playMusicByUI(String path) {
-        if(timer!=null){
-            timer.cancel();
-            timer.purge();
-            timer = null;
-        }
-
         Log.d("111","path:"+path);
         if(currentDirectory==null){
             Log.d("111","playMusic.currentDirectory==null");
@@ -191,27 +177,7 @@ public class MyMediaPlayerService extends Service {
             }
         }
 
-        if(!isPlaying) {
-
-            isPlaying=true;
-
-            try {
-                mediaPlayer.setDataSource(playList.get(currrentIndex));
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            mediaPlayer.prepareAsync();
-        }else{
-            mediaPlayer.stop();
-            mediaPlayer.reset();
-            try {
-                mediaPlayer.setDataSource(playList.get(currrentIndex));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            mediaPlayer.prepareAsync();
-        }
+        playMusicBySelf(playList.get(currrentIndex));
     }
     public void playMusicBySelf(String path){
         isPlaying = true;
@@ -220,6 +186,8 @@ public class MyMediaPlayerService extends Service {
             timer.purge();
             timer = null;
         }
+        mediaPlayer.stop();
+        mediaPlayer.reset();
         try {
             mediaPlayer.setDataSource(path);
         } catch (IOException e) {
@@ -232,17 +200,85 @@ public class MyMediaPlayerService extends Service {
     }
 
     public void pauseMusic(){
-        mediaPlayer.pause();
+        if(playList!=null){
+        if(isPlaying) {
+            mediaPlayer.pause();
+            isPlaying = false;
+            updateState(isPlaying);
+        }else{
+            mediaPlayer.start();
+            isPlaying = true;
+            updateState(isPlaying);
+        }
+        }
+    }
+
+    public void playNextOne(){
+            switch (playMode){
+                case playModeOrder:
+                    if(currrentIndex<(playList.size()-1)) {
+                        currrentIndex++;
+                    } else {
+                        Log.d("111","没有下一首了");
+                        return;
+                    }
+                    break;
+                case playModeCircle:
+                    if(currrentIndex<(playList.size()-1)) {
+                        currrentIndex++;
+                    } else {
+                        currrentIndex = 0;
+                    }
+                    break;
+                case playModeRandom:
+                    Random rand = new Random();
+                    currrentIndex = rand.nextInt(playList.size());
+                    break;
+            }
+            playMusicBySelf(playList.get(currrentIndex));
+    }
+
+    public void playPreviouOne(){
+            switch (playMode){
+                case playModeOrder:
+                    if(currrentIndex>0) {
+                        currrentIndex--;
+                    } else {
+                        Log.d("111","没有上一首了");
+                        return;
+                    }
+                    break;
+                case playModeCircle:
+                    if(currrentIndex>0) {
+                        currrentIndex--;
+                    } else {
+                        currrentIndex = playList.size()-1;
+                    }
+                    break;
+                case playModeRandom:
+                    Random rand = new Random();
+                    currrentIndex = rand.nextInt(playList.size());
+                    break;
+            }
+            playMusicBySelf(playList.get(currrentIndex));
     }
 
     public void setPlayMode(int playMode) {
         this.playMode = playMode;
     }
 
+    public void setPlayRepeat(boolean playRepeat) {
+        this.playRepeat = playRepeat;
+    }
+
     public void setTimeInterval(int timeInterval) {
         this.timeInterval = timeInterval;
     }
-
+    public void updateState(boolean state){
+        if(callback!=null){
+            callback.onStateChange(state);
+        }
+    }
     public List<Map<String,Object>> AudioSort(String path){
         List<Map<String,Object>> audioLists = new ArrayList<>();
         File[] files = new File(path).listFiles();
@@ -267,4 +303,6 @@ public class MyMediaPlayerService extends Service {
             }
         });
     }
+
+
 }
