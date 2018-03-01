@@ -17,15 +17,27 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Created by WHY on 2018/2/27.
  */
 
 public class MyMediaPlayerService extends Service {
+    public final static int playModeOnce = 0;
+    public final static int playModeOneRepeat = 1;
+    public final static int playModeOrder = 2;
+    public final static int playModeAllRepeat = 3;
+    public final static int playModeRandom = 4;
+    private int playMode=0;//0 = 单曲单次， 1 = 单曲循环，2 = 顺序循环，3 = 全部循环，4 = 随机
+    private int timeInterval=0;
+    private TimerTask timerTask;
+    private Timer timer;
     private File file;
     private String currentDirectory=null;
-    private List<Map<String,Object>> playList;
+    private List<String> playList;
     private int currrentIndex;
     private MediaPlayer mediaPlayer;
     private MyIBinder myIBinder = new MyIBinder();
@@ -54,6 +66,41 @@ public class MyMediaPlayerService extends Service {
                 isPlaying = false;
                 Log.d("---","音乐播放完毕 setOnCompletionListener");
                 mp.reset();
+                timerTask = new TimerTask() {
+                    @Override
+                    public void run() {
+                        switch (playMode){
+                            case playModeOnce:
+                                return;
+                            case playModeOneRepeat:
+
+                                break;
+                            case playModeOrder:
+                                if(currrentIndex<(playList.size()-1)) {
+                                    currrentIndex++;
+                                } else {
+                                    return;
+                                }
+                                break;
+                            case playModeAllRepeat:
+                                if(currrentIndex<(playList.size()-1)) {
+                                    currrentIndex++;
+                                } else {
+                                    currrentIndex = 0;
+                                }
+                                break;
+                            case playModeRandom:
+                                Random rand = new Random();
+                                currrentIndex = rand.nextInt(playList.size());
+                                break;
+                        }
+                        playMusicBySelf(playList.get(currrentIndex));
+                    }
+                };
+                timer = new Timer();
+                timer.schedule(timerTask,timeInterval*1000);
+
+
 
             }
         });
@@ -90,9 +137,16 @@ public class MyMediaPlayerService extends Service {
         }
         super.onDestroy();
     }
-    public void playMusic(String path) {
+    public void playMusicByUI(String path) {
+        if(timer!=null){
+            timer.cancel();
+            timer.purge();
+            timer = null;
+        }
+
+        Log.d("111","path:"+path);
         if(currentDirectory==null){
-            Log.d("---","playMusic.currentDirectory==null");
+            Log.d("111","playMusic.currentDirectory==null");
 
             file = new File(path);
             currentDirectory = file.getParent();
@@ -100,45 +154,40 @@ public class MyMediaPlayerService extends Service {
             File[] files = new File(currentDirectory).listFiles();
             playList = new ArrayList<>();
             for(int i = 0; i < files.length; i++){
-
                 if(files[i].isFile()&&files[i].canRead()){
-                    Map<String,Object> map = new HashMap<>();
-                    map.put("fileName",files[i].getAbsolutePath());
-                    playList.add(map);
-                    filesSort(playList);
-                    map = new HashMap<>();
-                    map.put("fileName",path);
-                    currrentIndex=playList.indexOf(map);
+                    String str = files[i].getAbsolutePath();
+                    playList.add(str);
                 }
             }
+            filesSort(playList);
+            currrentIndex=playList.indexOf(path);
+            Log.d("111","currentIndex="+currrentIndex);
         }
         else
         {
-            Log.d("---","playMusic.currentDirectory!=null");
+            file = new File(path);
+            Log.d("111","playMusic.currentDirectory="+currentDirectory);
+
             if(file.getParent().equals(currentDirectory)) {
-                Log.d("---","pfile.getParent().equals(currentDirectory)");
-                Map<String,Object> map = new HashMap<>();
-                map = new HashMap<>();
-                map.put("fileName",path);
-                currrentIndex=playList.indexOf(map);
+                Log.d("111","pfile.getParent().equals(currentDirectory)==true");
+                currrentIndex=playList.indexOf(path);
+                Log.d("111","currentIndex="+currrentIndex);
             }
             else
             {
+                Log.d("111","file.getParent().equals(currentDirectory)==false");
                 currentDirectory = file.getParent();
                 File[] files = new File(currentDirectory).listFiles();
                 playList = new ArrayList<>();
                 for(int i = 0; i < files.length; i++){
-
                     if(files[i].isFile()&&files[i].canRead()){
-                        Map<String,Object> map = new HashMap<>();
-                        map.put("fileName",files[i].getAbsolutePath());
-                        playList.add(map);
-                        filesSort(playList);
-                        map = new HashMap<>();
-                        map.put("fileName",path);
-                        currrentIndex=playList.indexOf(map);
+                        String str = files[i].getAbsolutePath();
+                        playList.add(str);
                     }
                 }
+                filesSort(playList);
+                currrentIndex=playList.indexOf(path);
+                Log.d("111","currentIndex="+currrentIndex);
             }
         }
 
@@ -147,7 +196,7 @@ public class MyMediaPlayerService extends Service {
             isPlaying=true;
 
             try {
-                mediaPlayer.setDataSource(playList.get(currrentIndex).get("fileName").toString());
+                mediaPlayer.setDataSource(playList.get(currrentIndex));
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -157,14 +206,27 @@ public class MyMediaPlayerService extends Service {
             mediaPlayer.stop();
             mediaPlayer.reset();
             try {
-                mediaPlayer.setDataSource(playList.get(currrentIndex).get("fileName").toString());
+                mediaPlayer.setDataSource(playList.get(currrentIndex));
             } catch (IOException e) {
                 e.printStackTrace();
             }
             mediaPlayer.prepareAsync();
         }
     }
-
+    public void playMusicBySelf(String path){
+        isPlaying = true;
+        if(timer!=null){
+            timer.cancel();
+            timer.purge();
+            timer = null;
+        }
+        try {
+            mediaPlayer.setDataSource(path);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        mediaPlayer.prepareAsync();
+    }
     public void stopMusic(){
         mediaPlayer.stop();
     }
@@ -172,6 +234,15 @@ public class MyMediaPlayerService extends Service {
     public void pauseMusic(){
         mediaPlayer.pause();
     }
+
+    public void setPlayMode(int playMode) {
+        this.playMode = playMode;
+    }
+
+    public void setTimeInterval(int timeInterval) {
+        this.timeInterval = timeInterval;
+    }
+
     public List<Map<String,Object>> AudioSort(String path){
         List<Map<String,Object>> audioLists = new ArrayList<>();
         File[] files = new File(path).listFiles();
@@ -188,11 +259,11 @@ public class MyMediaPlayerService extends Service {
 
         return type;
     }
-    public void filesSort(List<Map<String,Object>> filesList) {
-        Collections.sort(filesList, new Comparator<Map<String, Object>>() {
+    public void filesSort(List<String> filesList) {
+        Collections.sort(filesList, new Comparator<String>() {
             @Override
-            public int compare(Map<String, Object> o1, Map<String, Object> o2) {
-                return o1.get("fileName").toString().compareTo(o2.get("fileName").toString());
+            public int compare(String o1, String o2) {
+                return o1.compareTo(o2);
             }
         });
     }

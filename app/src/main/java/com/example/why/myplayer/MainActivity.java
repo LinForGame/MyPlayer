@@ -102,8 +102,8 @@ public class MainActivity extends AppCompatActivity {
                     case playModeRandom:
                         button5.setText("随机");
                         break;
-
                 }
+                myMediaPlayerService.setPlayMode(playMode);
             }
         });
         button6.setOnClickListener(new View.OnClickListener() {
@@ -115,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
                     timeInterval=0;
                 }
                 button6.setText(String.valueOf(timeInterval));
+                myMediaPlayerService.setTimeInterval(timeInterval);
             }
         });
         /**for test**/
@@ -150,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("---","是个文件！"+"setOnItemClickListener view.id:"+view.getId()+",id:"+id);
                     if(myMediaPlayerService!=null) {
                         if(file.canRead()) {
-                            myMediaPlayerService.playMusic(file.getAbsolutePath());
+                            myMediaPlayerService.playMusicByUI(file.getAbsolutePath());
                         }else{
                             Log.d("---","是个文件！ bfile.canRead() is false！！！");
                         }
